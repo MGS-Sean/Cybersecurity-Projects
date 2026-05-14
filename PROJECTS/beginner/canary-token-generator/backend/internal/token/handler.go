@@ -239,14 +239,19 @@ func (h *Handler) GetManage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	events, total, silenced := h.gatherManageData(r, tok.ID, cursor, limit)
+	events, page, total, silenced := h.gatherManageData(
+		r,
+		tok.ID,
+		cursor,
+		limit,
+	)
 
 	resp := ManageResponse{
 		Token:                tok.ToManageView(h.svc.TriggerURL(tok.ID)),
 		Events:               events,
 		EventsTotal:          total,
 		EventsSilencedActive: silenced,
-		Page:                 buildPage(events, limit),
+		Page:                 page,
 	}
 	h.writeJSON(w, http.StatusOK, envelopeData(resp))
 }
@@ -282,9 +287,9 @@ func (h *Handler) gatherManageData(
 	tokenID string,
 	cursor int64,
 	limit int,
-) (events []event.Response, total, silenced int64) {
+) (events []event.Response, page ManagePage, total, silenced int64) {
 	if h.eventQuery == nil {
-		return nil, 0, 0
+		return nil, ManagePage{}, 0, 0
 	}
 	list, err := h.eventQuery.ListByToken(
 		r.Context(), tokenID, event.ListOptions{Cursor: cursor, Limit: limit},
@@ -295,6 +300,12 @@ func (h *Handler) gatherManageData(
 	}
 	for i := range list.Events {
 		events = append(events, list.Events[i].ToResponse())
+	}
+	if list.HasMore {
+		page = ManagePage{
+			NextCursor: strconv.FormatInt(list.NextCursor, 10),
+			HasMore:    true,
+		}
 	}
 
 	if total, err = h.eventQuery.CountByToken(
@@ -316,18 +327,7 @@ func (h *Handler) gatherManageData(
 			silenced = 0
 		}
 	}
-	return events, total, silenced
-}
-
-func buildPage(events []event.Response, limit int) ManagePage {
-	if len(events) < limit || len(events) == 0 {
-		return ManagePage{}
-	}
-	last := events[len(events)-1]
-	return ManagePage{
-		NextCursor: strconv.FormatInt(last.ID, 10),
-		HasMore:    true,
-	}
+	return events, page, total, silenced
 }
 
 func parseCursor(raw string) (int64, error) {
