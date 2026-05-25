@@ -83,6 +83,15 @@ from hash_identifier import PREFIX_RULES, HashCandidate, identify
 # leading characters
 
 
+def test_tiger128_length_returns_tiger128() -> None:
+    sample = "aaaaaaaaaaaaaaaaaaaaaaaa"
+
+    candidates = identify(sample)
+
+    assert candidates
+
+    assert candidates[0].algorithm == "Tiger-128"
+
 def test_bcrypt_prefix_is_recognized() -> None:
     """
     A real bcrypt hash starts with `$2b$` and should be reported as bcrypt

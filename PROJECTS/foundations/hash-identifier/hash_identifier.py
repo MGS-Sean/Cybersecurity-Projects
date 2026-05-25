@@ -75,6 +75,8 @@ from rich.console import Console
 # ranked hash candidates.
 from rich.table import Table
 
+import json
+
 # =============================================================================
 # Confidence type — only three valid values
 # =============================================================================
@@ -178,6 +180,8 @@ PREFIX_RULES: list[tuple[str, str, str]] = [
     ("{SMD5}", "LDAP SMD5", "LDAP salted MD5 (base64 payload)"),
     ("{MD5}", "LDAP MD5", "LDAP MD5 (base64 payload)"),
     ("{CRYPT}", "LDAP CRYPT", "LDAP wrapping a crypt(3) hash"),
+
+    ("$pbkdf2$", "PBKDF2-SHA1 (Atlassian)", "Older Atlassian / Jira hashes")
 ]
 
 
@@ -208,6 +212,7 @@ HEX_LENGTH_RULES: dict[int, list[str]] = {
     # other thing that produces 16 hex chars in a security context
     # is a 64-bit CRC, which is rare enough that MySQL323 outranks it
     16: ["MySQL323", "CRC-64"],
+    24: ["Tiger-128"],
     # 32 hex chars = 16 bytes = 128 bits
     32: ["MD5", "NTLM", "MD4", "RIPEMD-128"],
     # 40 hex chars = 20 bytes = 160 bits
@@ -590,6 +595,12 @@ def _build_argument_parser() -> argparse.ArgumentParser:
         default = 5,
         help = "Show at most this many candidates (default: 5).",
     )
+    parser.add_argument(
+        "--json",
+        action = "store_true",
+        default= False,
+        help = "Provides candidates as JSON output."
+    )
     return parser
 
 
@@ -648,6 +659,12 @@ def main() -> int:
     console = Console()
 
     candidates = identify(args.hash)
+    output = []
+    for candidate in candidates:
+        output2 = {"algorithm": candidate.algorithm, "confidence": candidate.confidence, "reason": candidate.reason}
+        output.append(output2)
+    text = json.dumps(output, indent=2)
+    console.print(text)
 
     if not candidates:
         # `[red]...[/red]` is rich's inline color markup
