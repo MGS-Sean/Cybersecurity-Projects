@@ -659,8 +659,8 @@ def generateJson(candidates: list[HashCandidate]) -> str:
     for candidate in candidates:
         output2 = {"algorithm": candidate.algorithm, "confidence": candidate.confidence, "reason": candidate.reason}
         output.append(output2)
-        text = json.dumps(output, indent=2)
-        return text
+    text = json.dumps(output, indent=2)
+    return text
 
 def main() -> int:
     """
@@ -678,50 +678,54 @@ def main() -> int:
         with open(args.file, 'r', encoding='utf-8') as file:
             for line in file:
                 theCandidates = identify(line.strip())
+                if not theCandidates:
+                    console.print(
+                    "[red]No identification possible.[/red] "
+                    "Input did not match any known prefix, special format, "
+                    "or hex length."
+                    )
+                    continue
                 trimmed = trim(args.top, theCandidates)
-                if not args.json:
-                    _render_table(line, trimmed, console)
-                else:
-                    text = generateJson(theCandidates)
+                if args.json:
+                    text = generateJson(trimmed)
                     console.print(text)
+                else:
+                    _render_table(line, trimmed, console)
                 print("\n")
                 print("=================================")
                 print("\n")
-
-    if args.hash:
-
-        candidates = identify(args.hash)
-        output = []
-    
-        if args.json:
-            text = generateJson(candidates)
-            console.print(text)
-
-    
-
-        if not candidates:
-        # `[red]...[/red]` is rich's inline color markup
-            console.print(
-                "[red]No identification possible.[/red] "
-                "Input did not match any known prefix, special format, "
-                "or hex length."
-            )
-            return 1
-
-        # Trim to the requested top-N
-        trimmed = trim(args.top, candidates)
-        if not args.json:
-            _render_table(args.hash, trimmed, console)
-
-        # Helpful nudge — point the user at the cracker once they know
-        # what algorithm to target. Foundations tier is meant to chain
-        if trimmed[0].confidence == "high":
-            console.print(
-                "\n[dim]Next step: try the matching cracker mode "
-                "(see ../../beginner/hash-cracker).[/dim]"
-            )
-
         return 0
+
+    candidates = identify(args.hash)
+    
+    if args.json:
+        text = generateJson(candidates)
+        console.print(text)
+
+    
+    if not candidates:
+    # `[red]...[/red]` is rich's inline color markup
+        console.print(
+            "[red]No identification possible.[/red] "
+            "Input did not match any known prefix, special format, "
+            "or hex length."
+        )
+        return 1
+
+    # Trim to the requested top-N
+    trimmed = trim(args.top, candidates)
+    if not args.json:
+        _render_table(args.hash, trimmed, console)
+
+    # Helpful nudge — point the user at the cracker once they know
+    # what algorithm to target. Foundations tier is meant to chain
+    if trimmed[0].confidence == "high":
+        console.print(
+            "\n[dim]Next step: try the matching cracker mode "
+            "(see ../../beginner/hash-cracker).[/dim]"
+        )
+
+    return 0
 
 
 # Standard "if invoked directly as a script" guard — lets the file be
