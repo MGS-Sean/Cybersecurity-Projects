@@ -584,7 +584,7 @@ def _build_argument_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
-        "hash",
+        "--hash",
         help =
         "The hash string to identify (wrap in single quotes if it contains $).",
     )
@@ -600,6 +600,11 @@ def _build_argument_parser() -> argparse.ArgumentParser:
         action = "store_true",
         default= False,
         help = "Provides candidates as JSON output."
+    )
+    parser.add_argument(
+        "--file",
+        type=str,
+        help="Identify hashes from a file."
     )
     return parser
 
@@ -645,6 +650,17 @@ def _render_table(
         )
     console.print(table)
 
+def trim(amountOfTrim: int, candidates: list[HashCandidate]) -> list[HashCandidate]:
+    trimmed = candidates[: amountOfTrim]
+    return trimmed
+
+def generateJson(candidates: list[HashCandidate]) -> str:
+    output = []
+    for candidate in candidates:
+        output2 = {"algorithm": candidate.algorithm, "confidence": candidate.confidence, "reason": candidate.reason}
+        output.append(output2)
+        text = json.dumps(output, indent=2)
+        return text
 
 def main() -> int:
     """
@@ -658,36 +674,54 @@ def main() -> int:
     args = parser.parse_args()
     console = Console()
 
-    candidates = identify(args.hash)
-    output = []
-    for candidate in candidates:
-        output2 = {"algorithm": candidate.algorithm, "confidence": candidate.confidence, "reason": candidate.reason}
-        output.append(output2)
-    text = json.dumps(output, indent=2)
-    console.print(text)
+    if args.file:
+        with open(args.file, 'r', encoding='utf-8') as file:
+            for line in file:
+                theCandidates = identify(line.strip())
+                trimmed = trim(args.top, theCandidates)
+                if not args.json:
+                    _render_table(line, trimmed, console)
+                else:
+                    text = generateJson(theCandidates)
+                    console.print(text)
+                print("\n")
+                print("=================================")
+                print("\n")
 
-    if not candidates:
+    if args.hash:
+
+        candidates = identify(args.hash)
+        output = []
+    
+        if args.json:
+            text = generateJson(candidates)
+            console.print(text)
+
+    
+
+        if not candidates:
         # `[red]...[/red]` is rich's inline color markup
-        console.print(
-            "[red]No identification possible.[/red] "
-            "Input did not match any known prefix, special format, "
-            "or hex length."
-        )
-        return 1
+            console.print(
+                "[red]No identification possible.[/red] "
+                "Input did not match any known prefix, special format, "
+                "or hex length."
+            )
+            return 1
 
-    # Trim to the requested top-N
-    trimmed = candidates[: args.top]
-    _render_table(args.hash, trimmed, console)
+        # Trim to the requested top-N
+        trimmed = trim(args.top, candidates)
+        if not args.json:
+            _render_table(args.hash, trimmed, console)
 
-    # Helpful nudge — point the user at the cracker once they know
-    # what algorithm to target. Foundations tier is meant to chain
-    if trimmed[0].confidence == "high":
-        console.print(
-            "\n[dim]Next step: try the matching cracker mode "
-            "(see ../../beginner/hash-cracker).[/dim]"
-        )
+        # Helpful nudge — point the user at the cracker once they know
+        # what algorithm to target. Foundations tier is meant to chain
+        if trimmed[0].confidence == "high":
+            console.print(
+                "\n[dim]Next step: try the matching cracker mode "
+                "(see ../../beginner/hash-cracker).[/dim]"
+            )
 
-    return 0
+        return 0
 
 
 # Standard "if invoked directly as a script" guard — lets the file be
