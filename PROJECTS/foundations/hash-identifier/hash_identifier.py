@@ -674,18 +674,39 @@ def main() -> int:
     args = parser.parse_args()
     console = Console()
 
+    if not args.hash and not args.file:
+        for line in sys.stdin:
+            candidates = identify(line)
+            if not candidates:
+                console.print(
+                    "[red]No identification possible.[/red] "
+                    "Input did not match any known prefix, special format, "
+                    "or hex length."
+                    )
+                continue
+            trimmed = trim(args.top, candidates)
+            if args.json:
+                text = generateJson(trimmed)
+                console.print(text)
+            else:
+                _render_table(line, trimmed, console)
+            print("\n")
+            print("=================================")
+            print("\n")
+        return 0
+
     if args.file:
         with open(args.file, 'r', encoding='utf-8') as file:
             for line in file:
-                theCandidates = identify(line.strip())
-                if not theCandidates:
+                candidates = identify(line.strip())
+                if not candidates:
                     console.print(
                     "[red]No identification possible.[/red] "
                     "Input did not match any known prefix, special format, "
                     "or hex length."
                     )
                     continue
-                trimmed = trim(args.top, theCandidates)
+                trimmed = trim(args.top, candidates)
                 if args.json:
                     text = generateJson(trimmed)
                     console.print(text)
